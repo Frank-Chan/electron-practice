@@ -19,6 +19,9 @@ const createWindow = () => {
 
   // 让新窗口加载指定的 index.html 文件
   win.loadFile("index.html");
+
+  // 打开开发者工具
+  win.webContents.openDevTools();
 };
 
 // 这段程序将会在 Electron 结束初始化
@@ -36,7 +39,7 @@ app.whenReady().then(() => {
 });
 
 // 除了 macOS 外，当所有窗口都被关闭的时候退出程序。 因此, 通常
-// 对应用程序和它们的菜单栏来说应该时刻保持激活状态, 
+// 对应用程序和它们的菜单栏来说应该时刻保持激活状态,
 // 直到用户使用 Cmd + Q 明确退出
 app.on("window-all-closed", () => {
   if (process.platform !== "darwin") {
