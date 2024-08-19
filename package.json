@@ -4,7 +4,9 @@
   "description": "Hello World",
   "main": "main.js",
   "scripts": {
-    "start": "electron ."
+    "start": "electron .",
+    "pack": "electron-builder --dir",
+    "dist": "electron-builder"
   },
   "keywords": [
     "electron"
@@ -12,6 +14,7 @@
   "author": "Frank",
   "license": "ISC",
   "devDependencies": {
-    "electron": "^31.4.0"
+    "electron": "^31.4.0",
+    "electron-builder": "^24.13.3"
   }
 }
