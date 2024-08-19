@@ -1,3 +1,13 @@
+const info = document.getElementById("mainProcessCallTest");
+info.innerText = `本应用程序正在使用Chrome(v${versions.chrome()}), Node.js(v${versions.node()}) 和 Electron(v${versions.electron})`;
+
+const func = async () => {
+  const result = await versions.ping();
+  console.log(result);// 打印‘pong’
+};
+func();
+
+
 document.getElementById("loadRenderFile").addEventListener("click", () => {
   // 向渲染进程发送消息
   //   window.ipcRenderer.send('message-from-renderer', 'Hello from renderer.js');
