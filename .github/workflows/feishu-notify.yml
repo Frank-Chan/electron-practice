@@ -1,0 +1,75 @@
+name: Feishu Push Notification
+
+on: [push]
+
+jobs:
+  notify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Send Feishu notification
+        env:
+          WEBHOOK_URL: ${{ secrets.FEISHU_WEBHOOK_URL }}
+          WEBHOOK_SECRET: ${{ secrets.FEISHU_WEBHOOK_SECRET }}
+          REPO: ${{ github.repository }}
+          BRANCH: ${{ github.ref_name }}
+          PUSHER: ${{ github.actor }}
+          COMPARE_URL: ${{ github.event.compare }}
+          DELETED: ${{ github.event.deleted }}
+          COMMITS: ${{ toJson(github.event.commits) }}
+        run: |
+          set -euo pipefail
+          if [ -z "$WEBHOOK_URL" ]; then
+            echo "FEISHU_WEBHOOK_URL secret not set, skip"
+            exit 0
+          fi
+          if [ "$DELETED" = "true" ]; then
+            echo "Branch deleted, skip"
+            exit 0
+          fi
+          COUNT=$(echo "$COMMITS" | jq 'length')
+          if [ "$COUNT" -eq 0 ]; then
+            echo "No commits in payload (tag push or empty push), skip"
+            exit 0
+          fi
+
+          TIMESTAMP=$(date +%s)
+          SIGN=""
+          if [ -n "$WEBHOOK_SECRET" ]; then
+            KEY=$(printf '%s\n%s' "$TIMESTAMP" "$WEBHOOK_SECRET")
+            SIGN=$(printf '' | openssl dgst -sha256 -hmac "$KEY" -binary | base64)
+          fi
+
+          BODY=$(jq -n \
+            --arg repo "$REPO" \
+            --arg branch "$BRANCH" \
+            --arg pusher "$PUSHER" \
+            --arg compare "$COMPARE_URL" \
+            --arg ts "$TIMESTAMP" \
+            --arg sign "$SIGN" \
+            --argjson commits "$COMMITS" \
+            '
+            ($commits | length) as $total |
+            {
+              msg_type: "post",
+              content: { post: { zh_cn: {
+                title: "⬆️ \($repo) 收到推送",
+                content: (
+                  [[ {tag: "text", text: "分支: \($branch)    推送者: \($pusher)"} ]]
+                  + ($commits[0:10] | map([
+                      {tag: "a", text: (.id[0:7]), href: .url},
+                      {tag: "text", text: ("  " + (.message | split("\n")[0]))}
+                    ]))
+                  + (if $total > 10 then [[ {tag: "text", text: "… 共 \($total) 个 commit"} ]] else [] end)
+                  + [[ {tag: "a", text: "查看变更对比", href: $compare} ]]
+                )
+              }}}
+            }
+            + (if $sign == "" then {} else {timestamp: $ts, sign: $sign} end)
+            ')
+
+          RESP=$(curl -sS -X POST -H 'Content-Type: application/json' -d "$BODY" "$WEBHOOK_URL")
+          echo "Feishu response: $RESP"
+          echo "$RESP" | jq -e '((.code // .StatusCode) == 0)' >/dev/null || {
+            echo "::error::Feishu webhook returned an error"
+            exit 1
+          }
